@@ -14,6 +14,8 @@
   pre_tasks:
     - name: Gather facts -- when not is_proot (not Android)
       setup:
+        gather_subset:
+          - 'all'
       when: not is_proot
 
     - name: Gather minimal facts -- when is_proot (Android)
