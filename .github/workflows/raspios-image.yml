@@ -115,6 +115,7 @@ jobs:
           chmod 0755 $MOUNT_DIR/root/builder.sh
           echo "Entering CHROOT"
           chroot $MOUNT_DIR /root/builder.sh
+          echo "Leaving CHROOT"
 
           umount "${MOUNT_DIR}"/run
           umount "${MOUNT_DIR}"/tmp
