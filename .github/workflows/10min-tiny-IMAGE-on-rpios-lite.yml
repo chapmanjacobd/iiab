@@ -3,7 +3,7 @@ name: '"10 min" TINY IMAGE on latest RPiOS Lite'
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]+.*"
     branches:
       - master
     paths-ignore:
@@ -42,7 +42,7 @@ jobs:
           DATE=$(date +'%y%m%d')
           HASH=$(git -C iiab rev-parse --short=7 HEAD)
           TAG_NAME=${{ github.ref_name }}
-          if [[ "$TAG_NAME" == v* ]]; then
+          if [[ "$TAG_NAME" =~ ^[0-9] ]]; then
             RELEASE_NAME="$TAG_NAME"
           else
             RELEASE_NAME="daily-${DATE}-${HASH}"
@@ -300,7 +300,7 @@ jobs:
             --title "IIAB Daily Build ${{ env.RELEASE_NAME }}" \
             --generate-notes \
             --prerelease \
-            --repo ${{ github.repository }}
+            --repo ${{ github.repository }} || true
 
       - name: Upload image and manifest to Release
         env:
@@ -312,7 +312,7 @@ jobs:
             --repo ${{ github.repository }}
 
       - name: Cleanup old daily releases
-        if: ${{ !startsWith(github.ref_name, 'v') }}
+        if: ${{ github.ref_type == 'branch' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -320,7 +320,7 @@ jobs:
           THRESHOLD=$(date -d "7 days ago" +%s)
 
           gh release list --repo ${{ github.repository }} --json name,tagName,isDraft,isPrerelease,createdAt | \
-          jq -r '.[] | select(.name | startswith("iiab-daily-")) | "\(.name)\t\(.createdAt)"' | \
+          jq -r '.[] | select(.name | startswith("daily-")) | "\(.name)\t\(.createdAt)"' | \
           while IFS=$'\t' read -r release_name created_at; do
             release_timestamp=$(date -d "$created_at" +%s)
             if [[ $release_timestamp -lt $THRESHOLD ]]; then
