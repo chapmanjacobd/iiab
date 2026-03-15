@@ -1,4 +1,4 @@
-name: '"10 min" TINY IMAGE on latest RPiOS Lite'
+name: '"10 min" UNITTEST IMAGE on latest RPiOS Lite'
 
 on:
   push:
@@ -66,7 +66,7 @@ jobs:
           echo "IIAB_BASE_VERSION=$VERSION" >> $GITHUB_ENV
           DATE=$(date +'%y%m%d')
           OS="raspios"
-          EDITION="tiny"
+          EDITION="unittest"
           HASH=$(git -C ../iiab rev-parse --short=7 HEAD)
           IMG_NAME="iiab-$VERSION-$DATE-$OS-$EDITION-$HASH"
           echo "IMG_NAME=$IMG_NAME" >> $GITHUB_ENV
@@ -186,7 +186,7 @@ jobs:
       - name: Generate rpi-imager manifest
         working-directory: nspawn-loop
         env:
-          EDITION: tiny
+          EDITION: unittest
         run: |
           cat << 'EOF' > gen_manifest.py
           import json
