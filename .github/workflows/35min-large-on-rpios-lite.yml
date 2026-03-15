@@ -2,7 +2,7 @@ name: '"35 min" LARGE on latest RPiOS Lite'
 
 on:
   push:
-    paths-ignore: &paths-ignore
+    paths-ignore:
       - '**/*.md'
       - '**/*.rst'
       - '**/*.html'
@@ -12,8 +12,17 @@ on:
       - '**/*.png'
       - '**/*.php'
       - '**/*.js'
-  pull_request:
-    paths-ignore: *paths-ignore
+  pull_request:  # needed to show up in Pull Request UI
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.html'
+      - '**/*.css'
+      - '**/*.svg'
+      - '**/*.jpg'
+      - '**/*.png'
+      - '**/*.php'
+      - '**/*.js'
   workflow_dispatch:
 
 jobs:
@@ -115,6 +124,7 @@ jobs:
           expect {
               timeout { puts "\nTimed out waiting for final confirmation prompt"; exit 1 }
               "photographed" { send "\r" }
+              "root@raspberrypi" { puts "\nAnsible quit before photograph. Exiting with failure."; exit 1 }
           }
           # forced reboot
           expect "login: " { send "root\r" }

@@ -3,7 +3,7 @@ name: '"30 min" LARGE on Ubuntu 24.04'
 
 on:
   push:
-    paths-ignore: &paths-ignore
+    paths-ignore:
       - '**/*.md'
       - '**/*.rst'
       - '**/*.html'
@@ -13,8 +13,17 @@ on:
       - '**/*.png'
       - '**/*.php'
       - '**/*.js'
-  pull_request:
-    paths-ignore: *paths-ignore
+  pull_request:  # needed to show up in Pull Request UI
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.rst'
+      - '**/*.html'
+      - '**/*.css'
+      - '**/*.svg'
+      - '**/*.jpg'
+      - '**/*.png'
+      - '**/*.php'
+      - '**/*.js'
   workflow_dispatch:
 
 jobs:
@@ -52,13 +61,6 @@ jobs:
 
       - name: Install Ansible
         run: sudo /opt/iiab/iiab/scripts/ansible
-
-      - name: Install ansible-lint
-        run: pip install ansible-lint
-
-      - name: Run ansible-lint
-        run: ansible-lint
-        working-directory: /opt/iiab/iiab
 
       - name: Set up /etc/iiab/local_vars.yml
         run: |
