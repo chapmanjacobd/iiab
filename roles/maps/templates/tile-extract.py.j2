@@ -11,7 +11,7 @@ CATALOG_URL = "{{ maps_catalog_url }}"
 HOSTING_DIR = Path("{{ maps_serve_path }}")
 EXTRACTS_JSON = HOSTING_DIR / "{{ maps_tools.tile_extract.info_file }}"
 PMTILES = "{{ maps_tools.pmtiles.executable_path }}"
-TMP_DIR = "/library/downloads/maps"
+TMP_DIR = Path("/library/downloads/maps")
 
 # If you delete an fqr directory while you're inside that same
 # directory, you end up with weird errors
@@ -150,9 +150,9 @@ def get_new_extract_paths(extract_name):
                     "source":
                         get_mirror(source),
                     "extract":
-                        str(get_extract_dir(extract_name) / f"{region_extract_type}.{date}.pmtiles"),
+                        get_extract_dir(extract_name) / f"{region_extract_type}.{date}.pmtiles",
                     "tmp":
-                        os.path.join(TMP_DIR, f"{region_extract_type}.{date}.full-region.{extract_name}.pmtiles"),
+                        TMP_DIR / f"{region_extract_type}.{date}.full-region.{extract_name}.pmtiles",
                 }
             case _:
                 raise Exception("Oops got unexpected pmtiles file name:", source)
