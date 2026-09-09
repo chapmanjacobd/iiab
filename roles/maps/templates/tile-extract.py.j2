@@ -365,7 +365,7 @@ def get_estimates(new_fqr, extract_paths):
         if result.returncode != 0:
             raise Exception(
                 "Download size check failed. Double-check your Internet connection. "
-                "(error code {result.returncode})"
+                f"(error code {result.returncode})"
             )
 
         # Parse transfer and archive sizes from the last line of --dry-run output.
