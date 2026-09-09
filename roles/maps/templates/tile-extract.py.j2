@@ -512,7 +512,7 @@ def update_extracts_json():
             print (f"Warning: don't have all three types of pmtiles files for '{extract_name}'.")
             print (
                 "Have:",
-                set(region_extracts[extract_name]["dates"].keys()),
+                set(region_extracts[extract_name]["dates"].keys()) or "(none)",
                 "Missing:",
                 missing_region_types
             )
