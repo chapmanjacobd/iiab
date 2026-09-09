@@ -445,6 +445,8 @@ def update_extracts_json():
     #     "satellite": satellite_date,
     #   },
     # }
+    print () # Give space in case this is run after another command
+    print ("Updating extracts.json")
     region_extracts = defaultdict(
         lambda: dict(dates=defaultdict(dict)),
     )
@@ -452,11 +454,11 @@ def update_extracts_json():
     for extract_name, fqr_dir in get_all_fqr_dirs().items():
         fqr, error = get_fqr(extract_name, fqr_dir)
         if error:
+            print() # Extra line because we may list multiple incomplete FQRs here
             print (f"Warning: not displaying '{extract_name}' on the map - {error}")
             print ("You may need to delete this region and download it again. The command to delete it is:")
             print()
             print(delete_command(extract_name))
-            print() # Extra line because we may list multiple incomplete FQRs here
             continue # Something went really haywire. Skip this pmtiles file.
         region_extracts[extract_name]["bbox"] = fqr.to_bbox()
 
@@ -466,12 +468,12 @@ def update_extracts_json():
         missing_region_types = set(REGION_TYPES_FOR_DATE.values()) - set(region_extracts[extract_name]["dates"].keys())
 
         if missing_region_types:
+            print() # Extra line because we may list multiple incomplete FQRs here
             print (f"Warning: don't have all three types of pmtiles files for '{extract_name}'.")
             print ("Have:", set(region_extracts[extract_name]["dates"].keys()), "Missing:", missing_region_types)
             print ("To get the missing files, delete this region and download it again. The command to delete it is:")
             print() # TODO - recommend an "update" instead of delete when we implement that
             print(delete_command(extract_name))
-            print() # Extra line because we may list multiple incomplete FQRs here
 
     extracts = {"regions": region_extracts}
     with EXTRACTS_JSON.open("w") as f:
