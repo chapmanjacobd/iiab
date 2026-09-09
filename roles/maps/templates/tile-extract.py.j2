@@ -221,7 +221,7 @@ def list_files(root):
     """
 
     listing = []
-    for directory, _, files in os.walk(root):
+    for directory, _, files in root.walk():
         listing.append(f"* {directory}")
         for file in files:
             listing.append(f"* {directory}/{file}")
