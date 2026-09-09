@@ -9,7 +9,6 @@
 - name: Stop 'uwsgi' systemd service (may include 3 child processes for Captive Portal, and 3 child processes for Admin Console)
   systemd:
     name: uwsgi
-    daemon_reload: yes
     state: stopped
 
 - name: Install /etc/uwsgi/apps-enabled/captiveportal.ini from template (if captiveportal_enabled)
@@ -52,7 +51,6 @@
 - name: Start & Enable 'uwsgi' systemd service (may include 3 child processes for Captive Portal, and 3 child processes for Admin Console)
   systemd:
     name: uwsgi
-    daemon_reload: yes
     state: started
     enabled: true
 
