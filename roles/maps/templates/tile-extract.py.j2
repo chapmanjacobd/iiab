@@ -11,7 +11,7 @@ CATALOG_URL = "{{ maps_catalog_url }}"
 HOSTING_DIR = Path("{{ maps_serve_path }}")
 EXTRACTS_JSON = HOSTING_DIR / "{{ maps_tools.tile_extract.info_file }}"
 PMTILES = "{{ maps_tools.pmtiles.executable_path }}"
-TMP_DIR = "/library/downloads/maps"
+TMP_DIR = Path("/library/downloads/maps")
 
 # If you delete an fqr directory while you're inside that same
 # directory, you end up with weird errors
@@ -37,7 +37,10 @@ def get_fqr(extract_name, fqr_dir):
     except FileNotFoundError:
         # TODO nov 2026 or so we can remove "updated your IIAB recently". This
         # refers to the transition of adding the meta.json file to the fqr directory.
-        return None, "meta.json not found. This might be because of an incomplete download, or a recent IIAB update."
+        return None, (
+            "meta.json not found. This might be because of an incomplete download, "
+            "or a recent IIAB update."
+        )
     except (json.decoder.JSONDecodeError, KeyError):
         return None, "malformed meta.json"
     else:
@@ -86,7 +89,10 @@ def validate_extract_name(extract_name):
         raise ValueError(f"Invalid FQR name ({extract_name}): {error}")
 
 def validate_noninteractive(noninteractive):
-    assert noninteractive in ("", "noninteractive"), f"`noninteractive` (optional) should only be set to \"noninteractive\". Got {noninteractive}"
+    assert noninteractive in ("", "noninteractive"), (
+        "`noninteractive` (optional) should only be set to \"noninteractive\". "
+        f"Got {noninteractive}"
+    )
 
 def get_mirror(path):
     try:
@@ -150,9 +156,10 @@ def get_new_extract_paths(extract_name):
                     "source":
                         get_mirror(source),
                     "extract":
-                        str(get_extract_dir(extract_name) / f"{region_extract_type}.{date}.pmtiles"),
+                        get_extract_dir(extract_name) / f"{region_extract_type}.{date}.pmtiles",
                     "tmp":
-                        os.path.join(TMP_DIR, f"{region_extract_type}.{date}.full-region.{extract_name}.pmtiles"),
+                        (TMP_DIR /
+                            f"{region_extract_type}.{date}.full-region.{extract_name}.pmtiles"),
                 }
             case _:
                 raise Exception("Oops got unexpected pmtiles file name:", source)
@@ -221,7 +228,7 @@ def list_files(root):
     """
 
     listing = []
-    for directory, _, files in os.walk(root):
+    for directory, _, files in root.walk():
         listing.append(f"* {directory}")
         for file in files:
             listing.append(f"* {directory}/{file}")
@@ -274,7 +281,10 @@ def delete_extract(extract_name):
     # than one of satellite, terrain, or vector, or there are other unknown
     # files.
     if has_region_extract_type_dupes or has_extra_files or has_missing_files:
-        print (f"Warning: there are unexpected or missing files for the region '{extract_name}'. Expected:")
+        print (
+            "Warning: there are unexpected or missing files for the region "
+            f"'{extract_name}'. Expected:"
+        )
         print ("  * meta.json")
         print ("  * at most one 'openstreetmap-openmaptiles' file")
         print ("  * at most one 's2maps-sentinel2-2023' file")
@@ -301,9 +311,13 @@ def create_extract(new_fqr, extract_name, extract_paths):
     for paths in extract_paths.values():
         result = subprocess.run(
             [PMTILES, "extract", paths["source"], paths["tmp"], "--bbox=" + new_fqr.to_bbox_str()],
+            check=False, # default, but pylint recommends it be explicit
         )
         if result.returncode != 0:
-            raise Exception(f"Region download failed. Double-check your Internet connection. (error code {result.returncode})")
+            raise Exception(
+                "Region download failed. Double-check your Internet connection. "
+                f"(error code {result.returncode})"
+            )
 
     # I considered putting the fqr into a directory and moving it over
     # atomically. However, later we will deal in "updates" which will be harder
@@ -336,12 +350,23 @@ def get_estimates(new_fqr, extract_paths):
 
     for paths in extract_paths.values():
         result = subprocess.run(
-            [PMTILES, "extract", paths["source"], paths["tmp"], "--bbox=" + new_fqr.to_bbox_str(), "--dry-run"],
+            [
+                PMTILES,
+                "extract",
+                paths["source"],
+                paths["tmp"],
+                "--bbox=" + new_fqr.to_bbox_str(),
+                "--dry-run"
+            ],
             capture_output=True,
             text=True,
+            check=False, # default, but pylint recommends it be explicit
         )
         if result.returncode != 0:
-            raise Exception(f"Download size check failed. Double-check your Internet connection. (error code {result.returncode})")
+            raise Exception(
+                "Download size check failed. Double-check your Internet connection. "
+                f"(error code {result.returncode})"
+            )
 
         # Parse transfer and archive sizes from the last line of --dry-run output.
         # (Though we'll check every line to make it a bit more robust)
@@ -380,7 +405,9 @@ def approve_download_size(new_fqr, extract_paths):
 
     extract_sizes = get_estimates(new_fqr, extract_paths)
     if extract_sizes is None:
-        return yes_no("Cannot get file size estimate due to unexpected output from pmtiles. Download anyway?")
+        return yes_no(
+            "Cannot get file size estimate due to unexpected output from pmtiles. Download anyway?"
+        )
 
     # Convert the file sizes back to the best available unit
     transfer_total = sum(size['transfer'] for size in extract_sizes.values())
@@ -398,8 +425,9 @@ def approve_download_size(new_fqr, extract_paths):
 
     # Ask the user if they're okay with the size.
     return yes_no(
-        f'\nNew region will be {display(transfer_total)} downloaded, {display(archive_total)} on disk. This will'
-        f'\nleave about {display(free_b - archive_total)} free space on this partition. Continue?',
+        f"\nNew region will be {display(transfer_total)} downloaded, "
+        f"{display(archive_total)} on disk. This will"
+        f"\nleave about {display(free_b - archive_total)} free space on this partition. Continue?",
     )
 
 def check_for_existing_name(extract_name):
@@ -416,8 +444,13 @@ def check_for_existing_name(extract_name):
         # even if you have an invalid fqr, i.e. a directory without a meta.json
         # file. Such a directory would, all the same, block you from
         # downloading a new region with that name.
-        print(f'It looks like you already have a Full Quality Region called \"{extract_name}\". To delete this region, run:')
-        print() # TODO - recommend an "update" (if they have a meta.json) in case that's what they want to do, when we implement that
+        print(
+            f"It looks like you already have a Full Quality Region called \"{extract_name}\". "
+            "To delete this region, run:"
+        )
+        # TODO - recommend an "update" (if they have a meta.json) in case that's
+        #   what they want to do, when we implement that
+        print()
         print(delete_command(extract_name))
         return False
     return True
@@ -445,6 +478,8 @@ def update_extracts_json():
     #     "satellite": satellite_date,
     #   },
     # }
+    print () # Give space in case this is run after another command
+    print ("Updating extracts.json")
     region_extracts = defaultdict(
         lambda: dict(dates=defaultdict(dict)),
     )
@@ -452,26 +487,41 @@ def update_extracts_json():
     for extract_name, fqr_dir in get_all_fqr_dirs().items():
         fqr, error = get_fqr(extract_name, fqr_dir)
         if error:
+            print() # Extra line because we may list multiple incomplete FQRs here
             print (f"Warning: not displaying '{extract_name}' on the map - {error}")
-            print ("You may need to delete this region and download it again. The command to delete it is:")
+            print (
+                "You may need to delete this region and download it again. "
+                "The command to delete it is:"
+            )
             print()
             print(delete_command(extract_name))
-            print() # Extra line because we may list multiple incomplete FQRs here
             continue # Something went really haywire. Skip this pmtiles file.
         region_extracts[extract_name]["bbox"] = fqr.to_bbox()
 
         for _, region_extract_type, date in get_region_files_for_fqr(fqr_dir):
-            region_extracts[extract_name]["dates"][REGION_TYPES_FOR_DATE[region_extract_type]] = date
+            region_type_for_date = REGION_TYPES_FOR_DATE[region_extract_type]
+            region_extracts[extract_name]["dates"][region_type_for_date] = date
 
-        missing_region_types = set(REGION_TYPES_FOR_DATE.values()) - set(region_extracts[extract_name]["dates"].keys())
+        missing_region_types = (
+            set(REGION_TYPES_FOR_DATE.values()) -
+            set(region_extracts[extract_name]["dates"].keys())
+        )
 
         if missing_region_types:
+            print() # Extra line because we may list multiple incomplete FQRs here
             print (f"Warning: don't have all three types of pmtiles files for '{extract_name}'.")
-            print ("Have:", set(region_extracts[extract_name]["dates"].keys()), "Missing:", missing_region_types)
-            print ("To get the missing files, delete this region and download it again. The command to delete it is:")
+            print (
+                "Have:",
+                set(region_extracts[extract_name]["dates"].keys()) or "(none)",
+                "Missing:",
+                missing_region_types
+            )
+            print (
+                "To get the missing files, delete this region and download it again. "
+                "The command to delete it is:"
+            )
             print() # TODO - recommend an "update" instead of delete when we implement that
             print(delete_command(extract_name))
-            print() # Extra line because we may list multiple incomplete FQRs here
 
     extracts = {"regions": region_extracts}
     with EXTRACTS_JSON.open("w") as f:
@@ -494,7 +544,8 @@ def main():
         case "extract":
             # Get and validate arguments
             assert len(sys.argv) in (4, 5), (
-                "extract arguments are: `extract_name`, `extract_box`, and (optional) `noninteractive`"
+                "extract arguments are: `extract_name`, `extract_box`, and "
+                "(optional) `noninteractive`"
             )
 
             extract_name = sys.argv[2]
