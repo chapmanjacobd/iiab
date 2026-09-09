@@ -51,14 +51,14 @@ class FQR:
         An example string in this format is `"0,10,50.5,60.5"`
         """
         try:
-            min_lon, min_lat, max_lon, max_lat = [float(n) for n in bbox_str.split(",")]
+            bbox = [float(n) for n in bbox_str.split(",")]
         except Exception as e:
             raise ValueError(f"bbox ({bbox_str}) is malformed: {e}")
 
         try:
-            return cls([min_lon, min_lat, max_lon, max_lat])
+            return cls(bbox)
         except Exception as e:
-            raise ValueError(f"bbox ({[min_lon, min_lat, max_lon, max_lat]}) is invalid: {e}")
+            raise ValueError(f"bbox ({bbox}) is invalid: {e}")
 
 
     # Convert to
