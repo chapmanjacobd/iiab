@@ -51,6 +51,7 @@
 - name: Start & Enable 'uwsgi' systemd service (may include 3 child processes for Captive Portal, and 3 child processes for Admin Console)
   systemd:
     name: uwsgi
+    daemon_reload: yes
     state: started
     enabled: true
 
