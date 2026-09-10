@@ -33,6 +33,7 @@
 - name: Reload systemd after installing uWSGI packages
   systemd:
     daemon_reload: yes
+  when: not is_proot
 
 
 # 2021-08-07: Legacy from roles/httpd/tasks/install.yml
