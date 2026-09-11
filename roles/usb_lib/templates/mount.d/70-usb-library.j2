@@ -44,16 +44,19 @@ elif [ "$UM_DEV" == "$BOOTFW_DEV" ]; then
 fi
 
 {% if usb_lib_writable_sticks %}
-# ext4 stores Unix permissions on disk and does not support umask mount options.
+# Native Linux filesystems store Unix permissions on disk and do not support
+# umask mount options.
 # Make the mount root writable by the web server without changing its contents.
-if [ "$UM_FILESYSTEM" = "ext4" ]; then
-    logger -t "usb_lib (70-usb-library)" "Making ext4 mount root writable by {{ apache_user }}"
+case "$UM_FILESYSTEM" in
+ext2|ext3|ext4|btrfs|xfs|f2fs)
+    logger -t "usb_lib (70-usb-library)" "Making $UM_FILESYSTEM mount root writable by {{ apache_user }}"
     if ! chown "{{ apache_user }}:{{ apache_user }}" "$UM_MOUNTPOINT" ||
        ! chmod u+rwx "$UM_MOUNTPOINT"; then
         logger -t "usb_lib (70-usb-library)" "ERROR: Unable to make $UM_MOUNTPOINT writable by {{ apache_user }}"
         exit 1
     fi
-fi
+    ;;
+esac
 {% endif %}
 
 # 2025-01-25: Check for existence of folder PUBLIC on USB stick: if found, the stick will not be completely browsable.
