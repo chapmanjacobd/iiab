@@ -43,6 +43,19 @@ elif [ "$UM_DEV" == "$BOOTFW_DEV" ]; then
     exit 1
 fi
 
+{% if usb_lib_writable_sticks %}
+# ext4 stores Unix permissions on disk and does not support umask mount options.
+# Make the mount root writable by the web server without changing its contents.
+if [ "$UM_FILESYSTEM" = "ext4" ]; then
+    logger -t "usb_lib (70-usb-library)" "Making ext4 mount root writable by {{ apache_user }}"
+    if ! chown "{{ apache_user }}:{{ apache_user }}" "$UM_MOUNTPOINT" ||
+       ! chmod u+rwx "$UM_MOUNTPOINT"; then
+        logger -t "usb_lib (70-usb-library)" "ERROR: Unable to make $UM_MOUNTPOINT writable by {{ apache_user }}"
+        exit 1
+    fi
+fi
+{% endif %}
+
 # 2025-01-25: Check for existence of folder PUBLIC on USB stick: if found, the stick will not be completely browsable.
 # Teachers can set their stick for 1 of 2 two "personalities" — students can either upload "confidential homework" or
 # "public artwork" — as summarized here: https://github.com/iiab/iiab/blob/master/roles/usb_lib/README.rst
