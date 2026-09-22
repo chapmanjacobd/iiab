@@ -30,52 +30,70 @@
   include_tasks: install.yml
   when: nginx_installed is undefined
 
-# Ubuntu 26.10's 'uwsgi' package does not provide /etc/uwsgi/apps-enabled or a
-# SysV init script that generates 'uwsgi.service'. IIAB uses the distro's
-# 'uwsgi-emperor.service' and configures it to manage the vassals in
-# /etc/uwsgi/apps-enabled: admin-console.ini and captiveportal.ini.
-#
-# External consumers (e.g. iiab-admin-console's roles/console) still
-# enable/restart a 'uwsgi' service, so IIAB aliases 'uwsgi.service' to the
-# distro's 'uwsgi-emperor.service' below -- both names then work everywhere.
-- name: Ensure uWSGI's /etc/uwsgi 2 app dirs exist
+# The distro-provided uwsgi-app@.service manages one app per systemd instance.
+- name: Ensure uWSGI's app config directory exists
   file:
-    path: "{{ item }}"
+    path: /etc/uwsgi/apps-available
     state: directory
     mode: "0755"
-  loop:
-    - /etc/uwsgi/apps-available
-    - /etc/uwsgi/apps-enabled
 
-- name: Install /etc/uwsgi-emperor/emperor.ini from template (uWSGI Emperor over /etc/uwsgi/apps-enabled, as {{ apache_user }})
-  template:
-    src: emperor.ini.j2
-    dest: /etc/uwsgi-emperor/emperor.ini
+- name: Check for the distro-provided uWSGI app service template
+  stat:
+    path: "{{ systemd_location }}/uwsgi-app@.service"
+  register: uwsgi_app_service
   when: not is_proot
 
-- name: Alias 'uwsgi.service' -> distro's 'uwsgi-emperor.service' (legacy name, still used by iiab-admin-console)
+- name: Require the distro-provided uWSGI app service template
+  assert:
+    that: uwsgi_app_service.stat.exists
+    fail_msg: "The installed uwsgi package must provide uwsgi-app@.service"
+  when: not is_proot
+
+- name: Stop and disable obsolete uWSGI services
+  systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: no
+  loop:
+    - uwsgi-emperor
+    - uwsgi
+  ignore_errors: yes
+  when: not is_proot
+
+- name: Remove obsolete uWSGI service alias
   file:
-    src: /usr/lib/systemd/system/uwsgi-emperor.service
     path: /etc/systemd/system/uwsgi.service
-    state: link
-    force: yes    # Replace IIAB's legacy uwsgi.service unit, if upgrading
+    state: absent
+  when: not is_proot
+
+- name: Remove obsolete uWSGI Emperor package
+  package:
+    name: uwsgi-emperor
+    state: absent
+
+- name: Remove obsolete uWSGI Emperor configuration
+  file:
+    path: /etc/uwsgi-emperor
+    state: absent
+
+- name: Install uWSGI app service override for the existing Apache user
+  file:
+    path: /etc/systemd/system/uwsgi-app@.service.d
+    state: directory
+    mode: "0755"
+  when: not is_proot
+
+- name: Configure uWSGI app instances to run as {{ apache_user }}
+  template:
+    src: uwsgi-app@.service.d/iiab.conf.j2
+    dest: /etc/systemd/system/uwsgi-app@.service.d/iiab.conf
+    mode: "0644"
   when: not is_proot
 
 - name: Reload systemd
-  systemd:
+  systemd_service:
     daemon_reload: yes
   when: not is_proot
-
-# roles/captiveportal (stage 9) also starts & enables 'uwsgi-emperor', but it is
-# skipped on 'tiny' configs (captiveportal_install: False) that still install
-# Admin Console -- so enable it here whenever either app might need it.
-- name: Enable 'uwsgi-emperor' systemd service (needed by Admin Console and/or Captive Portal, incl. its 'uwsgi.service' alias)
-  systemd:
-    name: uwsgi-emperor
-    enabled: yes
-  when:
-    - not is_proot
-    - admin_console_install or captiveportal_install
 
 - include_tasks: enable-or-disable.yml
 
