@@ -56,30 +56,84 @@
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/test-page/build/{{ item }}"
     dest: "{{ vector_map_path }}/test-page/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_test_page_download_jobs
   with_items:
     - test-page-bundle.js
     - index.html
+
+- name: Wait for OpenLayers test page downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_test_page_download_jobs.results }}"
+  register: osm_test_page_download_status
+  until: osm_test_page_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up OpenLayers test page download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_test_page_download_jobs.results }}"
 
 - name: Download OpenLayers viewer page stuff (JavaScript bundle etc) from {{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/build/* to {{ vector_map_path }}/viewer/
   get_curl:
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/build/{{ item }}"
     dest: "{{ vector_map_path }}/viewer/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_viewer_page_download_jobs
   with_items:
     - index.html
     - viewer-bundle.js
     - viewer-bundle.js.map
+
+- name: Wait for OpenLayers viewer page downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_viewer_page_download_jobs.results }}"
+  register: osm_viewer_page_download_status
+  until: osm_viewer_page_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up OpenLayers viewer page download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_viewer_page_download_jobs.results }}"
 
 - name: Download 4 .css and .php helper files from {{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/* to {{ vector_map_path }}/viewer/ -- for viewer
   get_curl:
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/{{ item }}"
     dest: "{{ vector_map_path }}/viewer/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_viewer_helper_download_jobs
   with_items:
     - mbtileinfo.php
     - popup.css
     - searchapi.php
     - tileserver.php
+
+- name: Wait for OpenLayers viewer helper downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_viewer_helper_download_jobs.results }}"
+  register: osm_viewer_helper_download_status
+  until: osm_viewer_helper_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up OpenLayers viewer helper download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_viewer_helper_download_jobs.results }}"
 
 
 - name: Download 48MB {{ maps_assets_url }}/{{ installer_planet }} to {{ vector_map_path }}/installer/ -- for map installer
@@ -87,6 +141,42 @@
     url: "{{ maps_assets_url }}/{{ installer_planet }}"    # e.g. planet_z0-z6_2020.mbtiles
     dest: "{{ vector_map_path }}/installer/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_planet_download_job
+
+- name: Download 25MB {{ maps_assets_url }}/{{ installer_satellite }} to {{ vector_map_path }}/viewer/tiles/ -- basic satellite photos
+  get_curl:
+    url: "{{ maps_assets_url }}/{{ installer_satellite }}"    # e.g. satellite_z0-z6_2020.mbtiles
+    dest: "{{ vector_map_path }}/viewer/tiles/"
+    timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_satellite_download_job
+
+- name: Wait for planet map download
+  ansible.builtin.async_status:
+    jid: "{{ osm_planet_download_job.ansible_job_id }}"
+  register: osm_planet_download_status
+  until: osm_planet_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Wait for satellite map download
+  ansible.builtin.async_status:
+    jid: "{{ osm_satellite_download_job.ansible_job_id }}"
+  register: osm_satellite_download_status
+  until: osm_satellite_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up planet and satellite map download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item }}"
+    mode: cleanup
+  loop:
+    - "{{ osm_planet_download_job.ansible_job_id }}"
+    - "{{ osm_satellite_download_job.ansible_job_id }}"
 
 - name: Symlink {{ vector_map_path }}/installer/detail.mbtiles -> {{ vector_map_path }}/installer/{{ installer_planet }}
   file:
@@ -100,38 +190,70 @@
     path: "{{ vector_map_path }}/viewer/tiles/{{ installer_planet }}"
     state: link
 
-- name: Download 25MB {{ maps_assets_url }}/{{ installer_satellite }} to {{ vector_map_path }}/viewer/tiles/ -- basic satellite photos
-  get_curl:
-    url: "{{ maps_assets_url }}/{{ installer_satellite }}"    # e.g. satellite_z0-z6_2020.mbtiles
-    dest: "{{ vector_map_path }}/viewer/tiles/"
-    timeout: "{{ download_timeout }}"
-
-
 - name: Download {index.html, installer-bundle.js} from {{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/installer/build/* to {{ vector_map_path }}/installer/ -- for map installer
   get_curl:
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/installer/build/{{ item }}"
     dest: "{{ vector_map_path }}/installer/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_installer_page_download_jobs
   with_items:
     - index.html
     - installer-bundle.js
+
+- name: Wait for installer page downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_installer_page_download_jobs.results }}"
+  register: osm_installer_page_download_status
+  until: osm_installer_page_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up installer page download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_installer_page_download_jobs.results }}"
 
 - name: Download 4 action routines from {{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/installer/* to {{ vector_map_path }}/installer/ -- for installer
   get_curl:
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/installer/{{ item }}"
     dest: "{{ vector_map_path }}/installer/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_installer_action_download_jobs
   with_items:
     - map.css
     - style-osm.json
     - installer-functions.js
     - tileserver.php
 
+- name: Wait for installer action downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_installer_action_download_jobs.results }}"
+  register: osm_installer_action_download_status
+  until: osm_installer_action_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up installer action download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_installer_action_download_jobs.results }}"
+
 - name: Download 15 common assets from {{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/assets/* to {{ vector_map_path }}/viewer/assets/ -- for the general purpose map viewer
   get_curl:
     url: "{{ osm_repo_url }}/{{ maps_branch }}/osm-source/pages/viewer/assets/{{ item }}"
     dest: "{{ vector_map_path }}/viewer/assets/"
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: osm_viewer_asset_download_jobs
   with_items:
     - bboxes.geojson
     - center.png
@@ -148,6 +270,21 @@
     - style-osm.json
     - style-sat.json
     - view_list.png
+
+- name: Wait for common viewer asset downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ osm_viewer_asset_download_jobs.results }}"
+  register: osm_viewer_asset_download_status
+  until: osm_viewer_asset_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up common viewer asset download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ osm_viewer_asset_download_jobs.results }}"
 
 - name: Force Symlink {{ vector_map_path }}/maplist/assets/bboxes.geojson -> {{ vector_map_path }}/viewer/assets/bboxes.geojson for Admin Console
   file:

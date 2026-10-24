@@ -49,6 +49,8 @@ py3_dist_path: /usr/lib/python3/dist-packages
 
 # Ansible's default timeout for "get_url:" downloads (10 seconds) often fails
 download_timeout: 100
+# Maximum runtime for downloads/builds launched in the background.
+iiab_async_timeout: 1800
 
 # Please read more about the 'iiab-admin' Linux user, for login to IIAB's
 # Admin Console (http://box.lan/admin) AND to help you at the command-line:

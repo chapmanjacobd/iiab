@@ -47,11 +47,27 @@
   shell: npm install
   args:
     chdir: "{{ internetarchive_dir }}/dweb-mirror"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: internetarchive_build_job
 
 - name: mkdir {{ content_base }}/archiveorg
   file:
     state: directory
     path: "{{ content_base }}/archiveorg"    # /library
+
+- name: Wait for Internet Archive dependency build
+  ansible.builtin.async_status:
+    jid: "{{ internetarchive_build_job.ansible_job_id }}"
+  register: internetarchive_build_status
+  until: internetarchive_build_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up Internet Archive dependency build job
+  ansible.builtin.async_status:
+    jid: "{{ internetarchive_build_job.ansible_job_id }}"
+    mode: cleanup
 
 
 # 3. CONFIG FILES

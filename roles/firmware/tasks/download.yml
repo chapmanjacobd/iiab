@@ -35,6 +35,9 @@
     url: "{{ iiab_download_url }}/{{ item }}"
     dest: /lib/firmware/cypress/
     timeout: "{{ download_timeout }}"
+  async: "{{ iiab_async_timeout }}"
+  poll: 0
+  register: firmware_download_jobs
   with_items:
     - brcmfmac43455-sdio.bin_2021-11-30_minimal                # 19 -- SAME AS RASPIOS & UBUNTU'S https://github.com/RPi-Distro/firmware-nonfree/blob/feeeda21e930c2e182484e8e1269b61cca2a8451/debian/config/brcm80211/cypress/cyfmac43455-sdio-minimal.bin
     - brcmfmac43455-sdio.bin_2021-10-05_3rd-trial-minimal      # 24 -- from https://github.com/iiab/iiab/issues/2853#issuecomment-934293015
@@ -43,6 +46,21 @@
     - brcmfmac43455-sdio.clm_blob_2018-02-26_rpi
     - brcmfmac43430-sdio.bin_2018-09-11_7.45.98.65             # 30 -- from https://github.com/iiab/iiab/issues/823#issuecomment-662285202
     - brcmfmac43430-sdio.clm_blob_2018-09-11_7.45.98.65
+
+- name: Wait for higher-capacity firmware downloads
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+  loop: "{{ firmware_download_jobs.results }}"
+  register: firmware_download_status
+  until: firmware_download_status.finished
+  retries: "{{ (iiab_async_timeout // 5) | int }}"
+  delay: 5
+
+- name: Clean up higher-capacity firmware download jobs
+  ansible.builtin.async_status:
+    jid: "{{ item.ansible_job_id }}"
+    mode: cleanup
+  loop: "{{ firmware_download_jobs.results }}"
 
 
 # RECORD firmware AS DOWNLOADED

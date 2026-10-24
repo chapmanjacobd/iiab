@@ -45,6 +45,46 @@
     - name: Test directory destinations
       include_tasks: get_curl/directory.yml
 
+    - name: Test concurrent downloads
+      get_curl:
+        url: "{{ source_url }}"
+        dest: "{{ test_dir }}/async-{{ item }}.txt"
+      async: 60
+      poll: 0
+      loop:
+        - one
+        - two
+      register: async_download_jobs
+
+    - name: Wait for concurrent downloads
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ async_download_jobs.results }}"
+      register: async_download_status
+      until: async_download_status.finished
+      retries: 12
+      delay: 5
+
+    - name: Clean up concurrent download jobs
+      ansible.builtin.async_status:
+        jid: "{{ item.ansible_job_id }}"
+        mode: cleanup
+      loop: "{{ async_download_jobs.results }}"
+
+    - name: Verify concurrent download results
+      stat:
+        path: "{{ test_dir }}/async-{{ item }}.txt"
+      loop:
+        - one
+        - two
+      register: async_download_files
+
+    - name: Assert concurrent downloads created both files
+      assert:
+        that:
+          - item.stat.exists
+      loop: "{{ async_download_files.results }}"
+
     - name: Test retry behavior
       block:
         - name: Start local HTTP retry test server
